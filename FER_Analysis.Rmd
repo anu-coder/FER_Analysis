@@ -1,7 +1,7 @@
 ---
 title: "Modeling Foreign Exchange Rate INR/USD of India"
-subtitle: "A simple Time Series Analysis"
-author: "Anurima Dey, ISI, Tezpur"
+subtitle: "Assignment 2 : Time Series"
+author: "Anurima Dey, Roll : DST-19/20-005"
 output:
   pdf_document: default
   pdf_notebook: default
@@ -85,7 +85,7 @@ library(data.table)
 ```
 
 
-```{r results="hide" , message=FALSE, warningFALSE}
+```{r , message=FALSE, warning=FALSE}
 library(zoo)
 
 # Saving the months in  a vector
@@ -99,17 +99,21 @@ p <- as.factor(p)
 
 dmy <- one_hot(as.data.table(p))
 
+# taking trend
+t <- c(1: length(FER.window))
+
 # Setting the dummies and creating a dataframe
 m <- as.matrix(FER.window)
-X <- cbind(as.data.frame(m), as.data.frame(dmy))
+X <- cbind(as.data.frame(m),t, as.data.frame(dmy))
 names(X)[1] <- "Y"
 head(X, n= 12)
-
 ```
 
-_Here we shall check if the coefficients of the seasonal dummies are significant. If any one of the coefficient is significant then we say that seasonality exists._
+_Here we shall check if the coefficients of the seasonal dummies are significant. If any one of the coefficient is significant then we say that seasonality exists._  
 
-Here $$y_t = \beta_0+ \beta_1D_{1t}+\beta_2D_{2t}+.....+\beta_{12}D_{12t}$$ where $D_{i}$= Monthly dummies.  
+**Note**: To remove multicolinearity we omit one of the dummies, thankfully R automatically does the trick for us.   
+
+Here $$y_t = \beta_0+ \beta_1t+D_{1t}+\beta_2D_{2t}+.....+\beta_{12}D_{12t}$$ where $D_{i}$= Monthly dummies.  
 Here for each coefficient $\beta_{i}$ the null and alternate hypothesis are as follows:  
 $H_0{i}$ : $\beta_{i} = 0$  
 $H_a{i}$ : $\beta_{i} \neq 0$  
@@ -123,10 +127,12 @@ The lm summary shows that none of the *seasonal coefficients are significant*, s
 
 *2.c : Here we shall apply the* **Augmented Dickey Fuller(ADF)** test to check for any *Stochastic trend.* 
 
-The equation is : $$\Delta y_t = intercept+ slope*t+ \gamma x_{t-1} + e_t$$  
+The equation is : $$\Delta y_t = \alpha+ \beta t+ \gamma y_{t-1} + \delta_1\Delta y_{t-1}+...$$    
 Null Hypothesis: $H_0$ : $\gamma = 0$  
 Alternate Hypothesis : $H_a$ : $\gamma < 0$  
-Reject Null hypothesis at 5% level of significance if $test \ statistic \ value < \tau 1$  value at *5%* significance level i.e. if the test statistic lies on the left side of the critical value at 5% level of significance.    
+Reject Null hypothesis at 5% level of significance if $test \ statistic \ value < tau 1$  value at *5%* significance level i.e. if the test statistic lies on the left side of the critical value at 5% level of significance.  
+
+**Note:** Here the function will automatically choose the lag which takes the *lowest AIC*, and calculates accordingly.  
 
 ```{r}
 library(urca)
@@ -151,24 +157,23 @@ library(urca)
 summary(ur.df(FER.window.diff1, type = "trend", lags = 15, selectlags = "AIC"))
 ```
 
-This shows that the *test statistic* is $-5.9795 < -3.43$, Since it lies in the left side of the critical value, so we can *reject the null hypothesis*. Thus, we can say that our data has no unit root, i.e. stochastic trend is not there any more.
+This shows that the *test statistic* is $-5.9795 < -3.43$, Since it lies in the left side of the critical value, so we can *reject the null hypothesis*. Thus, we can say that our data has no unit root, i.e. stochastic trend is not there any more.  
 
-**Note:** Here the function has automatically chosen the lag which takes the *lowest AIC*, and calculates accordingly.
-
-Now we fit a linear trend to the data to check if there is any deterministic trend.
+Now we fit a linear trend to the data to check if there is any deterministic trend.  
 
 ```{r}
 model_select <- function(y, x ,poly.deg)
 {
   model <- lm(y~poly(x,poly.deg))
   return(summary(model))
-  
+    
 }
 t=seq.int(1,length(FER.window.diff1),1)
 y <- FER.window.diff1
 ```
 
-Fitting a trend model: $$y_t = a+ bt + u_t$$  
+Assuming a linear trend we fit the following model: $$ y_t = a+ bt + u_t, \ \ where \ u_t \sim N(0,1)$$    
+Now to determine if a linear trend is present, we test the following hypothesis.   
 $H_0$ : $b=0$  
 $H_a$ : $b \neq 0$  
 
@@ -181,7 +186,8 @@ Well this shows that *we fail to reject the null hypothesis* that is the coeffic
 We plot the difference data once more to see how it looks now. 
 
 ```{r}
-plot(FER.window.diff1, main = "Foreign Exchange Rate from 2010 - 2019", ylab = "Amount in INR for 1 USD")
+plot(FER.window.diff1, main = "Foreign Exchange Rate from 2010 - 2019", 
+     ylab = "Amount in INR for 1 USD")
 ```
 Now that the process is stationary from a **Trend Stationary process**, we proceed forward to building the model. 
 
@@ -231,9 +237,9 @@ length(rho$acf)
 **Ljung-Box test: **
 
 **Null Hypothesis:** $H_0$: $\rho_1= ... =\rho_k=0$, at a given lag k.  
-**Alternative Hypo: ** $H_1$: $\rho _i\neq 0 \ \forall \ i = 0,1,2,...k$  
+**Alternative Hypo: ** $H_1$: $\rho _i\neq 0 \ \forall \ i = 1,2,...k$  
 
-**Test Statistic**: $$Q(k)= n(n+2)(\frac{\sum_{j=1}^k\hat e_j^2}{n-j}) \sim \chi^2_k$$  
+**Test Statistic**: $$Q(k)= n(n+2)(\sum_{j=1}^k\frac{\hat e_j^2}{n-j}) \sim \chi^2_k$$  
 
 *Note :* In statistical hypothesis testing, the __p-value__ or probability value is the probability of obtaining test results at least as extreme as the results actually observed, assuming that the null hypothesis is correct. So here, the P-value of the test is the probability that a __chi-square test statistic__ having the respective degrees of freedom is more extreme than the obtained test statistic.  
 
@@ -269,22 +275,21 @@ We see that the acfs are partly diminishing and partly significant but cuts off 
 ```{r}
 pacf(FER.train.d1, lag.max = max_lag)
 ```
-**PACF follows a Standard Normal Distribution**
+**PACF**
 
 **Null & Alternate Hypothesis:**  
 
 $H_0$: $\phi_1= \phi_2=... =\phi_k=0$, at a given lag k.  
-$H_1$: $\phi_i\neq 0 \ \forall \ i = 0,1,2,...k$  
+$H_1$: $\phi_i\neq 0 \ \forall \ i = 1,2,...k$  
 
-**Test Statistic**: $$Q(k)= \sqrt n \hat \phi_k$$  
+**Test Statistic**: $$Q(k)= \sqrt n \hat \phi_k \sim N(0,1)$$   
 
-**Interpret results:** The *5%* level of significant test statistic value is *1.96*, so if $|Q(k)| < 1.96$  we reject the null hypothesis else we shall accept.
+**Interpret results:** Tne null Hypothesis follows a standard normal distribution, so at *5%* level of significant test statistic value is *1.96* $\implies$ if $|Q(k)| < 1.96$  we reject the null hypothesis else we shall accept.
 
 
 ```{r}
 n <- length(FER.train)
 phi <- pacf(FER.train.d1, lag.max = max_lag, plot = F)
-length(phi$acf)
 Qt <- as.numeric(phi$acf*sqrt(n))
 Qt <- abs(Qt)
 result <- NULL
@@ -308,17 +313,11 @@ This shows that the pacf cuts off entirely after lag 1. Suggesting a *AR(1)* mod
 # Step 6 : Model fitting and Residual Analysis. 
 
 
-**Model AR(1)**
+**Model AR(1)** | **Model MA(11)**
 
 ```{r}
 FER.model1 <- arima(FER.train, order = c(1,1,0))
-FER.model1
-```
-**Model MA(11)**
-
-```{r}
 FER.model2 <- arima(FER.train, order = c(0,1,11))
-FER.model2
 ```
 
 **AIC** and **BIC** of **AR(1) and MA(11)**
@@ -333,7 +332,15 @@ cat("AR(1) BIC : ", bic1, "\n", "MA(11) BIC : ", bic2, sep = "")
 cat("\n","AR(1) AIC : ", FER.model1$aic, "\n", "MA(11) AIC : ", FER.model2$aic, sep = "")
 ```
 
-As both AIC and BIC of model AR(1) is less than MA(11), so we select *AR(1) model as the final model.* 
+As both AIC and BIC of model AR(1) is less than MA(11), so **we select AR(1) model as the final model**.  
+
+```{r}
+FER.model1
+```
+
+\pagebreak
+
+Now we shall test the residuals to justify our model specification. 
 
 ```{r}
 AR_1_resid <- na.omit(FER.model1$residuals)
@@ -345,12 +352,12 @@ Again on the **residuals** we apply **Ljung Box Test**.
 **Remember: Ljung-Box test: **
 
 **Null Hypothesis:** $H_0$: $\rho_1= ... =\rho_k=0$, at a given lag k.  
-**Alternative Hypo: ** $H_1$: $\rho _i\neq 0 \ \forall \ i = 0,1,2,...k$  
+**Alternative Hypo: ** $H_1$: $\rho _i\neq 0 \ \forall \ i = 1,2,...k$  
 
-**Test Statistic**: $$Q(k)= n(n+2)(\frac{\sum_{j=1}^k\hat e_j^2}{n-j}) \sim \chi^2_{k-p-q}$$  
+**Test Statistic**: $$Q(k)= n(n+2)(\sum_{j=1}^k\frac{\hat e_j^2}{n-j}) \sim \chi^2_{k-p-q}$$  
 where p, q are the parameters of the model.  
 
-*Note :* In statistical hypothesis testing, the __p-value__ or probability value is the probability of obtaining test results at least as extreme as the results actually observed, assuming that the null hypothesis is correct. So here, the P-value of the test is the probability that a __chi-square test statistic__ having the respective degrees of freedom is more extreme than the obtained test statistic.  
+*Note :* In statistical hypothesis testing, the __p-value__ or probability value is the probability of obtaining test results at least as extreme as the results actually observed, assuming that the null hypothesis is correct. So here, the P-value of the test is the probability that a __chi-square test statistic__ having the respective degrees of freedom is more extreme than the obtained test statistic. Also note that the degrees of freedom here is k-p-q, so the first two values comes out to be null. In the given code we have removed the first two values.   
 
 **Interpret results:** If the P-value is less than the significance level (0.05), we reject the null hypothesis.  
 
@@ -368,21 +375,27 @@ for(i in (parameter+1):k)
   
 } else {result[i] <- "accept"} 
 }
-residual_table <- data.frame(K= 1:k, 
-                             RESIDUAL_ACF = resid_acf$acf, 
+residual_table <- cbind(K= 1:(k-parameter),na.omit(data.frame( 
+                            RESIDUAL_ACF = resid_acf$acf, 
                              P_VALUES=as.numeric(Rt$p.value), 
                              TEST_STATISTIC = as.numeric(Rt$statistic), 
-                             RESULT = as.vector(result))
+                             RESULT = as.vector(result))) 
+                            )
 residual_table
 ```
 
 This shows that our model fit is *Good enough* as we fail to reject the null hypothesis showing that the residue is plain white noise present. This means that our model fitting is Alright.  
 
+**Therefore, the correctly specified model is a AR(1) model given by:**  
+$$y_t = 0.2928 + 0.0895 y_{t-1} + e_t  \ \ where \ \ e_t \sim WN$$  
+
+
+
 \pagebreak
 
 # Step 7 : Forecasting on the Out Sample.
 
-Now we shall forecast 6 months value and find the **RMSE** and **MAPE**. 
+Now we shall forecast 6 months using our correctly specified model and find the **RMSE** and **MAPE**. 
 
 ```{r}
 library(astsa)
